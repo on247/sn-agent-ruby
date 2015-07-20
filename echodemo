@@ -1,0 +1,55 @@
+#!/usr/bin/env ruby
+require_relative "framework.rb"
+require "json"
+
+echoagent = Framework::AgentInterface.new
+echoagent.name="echodemo"
+echoagent.methods=["echo"]
+echoagent.pubmethods=["echo"]
+echoagent.authmethods=["echo"]
+echoagent.register=Proc.new{|info,args|
+  # Return disabled memthod bitmask , bits
+  # position in mask = position in methods array
+  next 0
+}
+echoagent.processRegister=Proc.new{|info,data|
+  info.allowremote=true;
+  answer = {"result": "echodemo init"}
+  next JSON.generate(answer)
+}
+echoagent.process=Proc.new{|info,data|
+  puts "process"
+  data=JSON.parse(data);
+  # TODO port NRS util library
+
+  errorstr = Framework::Util.new.emptyToNull(data["error"])
+  resultstr =Framework::Util.new.emptyToNull(data["result"])
+
+
+  if(errorstr!=nil)
+    answer={"result": "completed"}
+    next JSON.generate(answer)
+  end
+
+  method = Framework::Util.new.emptyToNull(data["method"])
+  methodResult = Framework::Util.new.emptyToNull(data["result"])
+
+  echoStr = Framework::Util.new.emptyToNull(data["echostr"])
+
+  if(method==nil)
+    puts "Request ("+data.to_s.sub("=>",':')+") has no method"
+    next nil
+  end
+
+  if(methodResult!=nil && methodResult=="registered")
+    info.registered=true
+    answer={"result": "activated"}
+    next JSON.generate(answer)
+  end
+
+  if(method=="echo")
+    answer={"result": echoStr}
+    next JSON.generate(answer)
+  end
+}
+Framework::Agent.new.init(echoagent,ARGV,STDERR)
